@@ -27,7 +27,7 @@ export const createCompanyController = async (req, res, next) => {
     }
 };
 
-// Get All Companies
+
 export const getCompanyController = async (req, res, next) => {
     try {
         const companies = await getCompany();
@@ -46,7 +46,7 @@ export const getCompanyController = async (req, res, next) => {
     }
 };
 
-// Get Company by ID
+
 export const getCompanyByIdController = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -71,7 +71,7 @@ export const getCompanyByIdController = async (req, res, next) => {
     }
 };
 
-// Update Company
+
 export const updateCompanyController = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -119,7 +119,7 @@ export const updateCompanyController = async (req, res, next) => {
     }
 };
 
-// Delete Company
+
 export const deleteCompanyController = async (req, res, next) => {
     try {
         const { id } = req.params;

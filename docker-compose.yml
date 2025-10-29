@@ -1,7 +1,4 @@
-version: "3.9"
-
 services:
-  # ===== Observability backends =====
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: prometheus
@@ -12,71 +9,11 @@ services:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prom_data:/prometheus
     ports:
-      - "9090:9090"
+      - "9092:9090"
     restart: unless-stopped
+    networks:
+      - app-network
 
-  alertmanager:
-    image: prom/alertmanager:v0.27.0
-    container_name: alertmanager
-    volumes:
-      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    ports:
-      - "9093:9093"
-    restart: unless-stopped
-
-  loki:
-    image: grafana/loki:2.9.8
-    container_name: loki
-    command: -config.file=/etc/loki/config.yml
-    volumes:
-      - ./observability/loki/config.yml:/etc/loki/config.yml:ro
-      - loki_data:/loki
-    ports:
-      - "3100:3100"
-    restart: unless-stopped
-
-  tempo:
-    image: grafana/tempo:2.5.0
-    container_name: tempo
-    command: [ "-config.file=/etc/tempo/config.yml" ]
-    volumes:
-      - ./observability/tempo/config.yml:/etc/tempo/config.yml:ro
-      - tempo_data:/var/tempo
-    ports:
-      - "3200:3200"  # tempo http
-      - "4318:4318"  # OTLP http
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:11.2.0
-    container_name: grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./observability/grafana/json:/var/lib/grafana/dashboards
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-      - loki
-      - tempo
-    restart: unless-stopped
-
-  fluent-bit:
-    image: cr.fluentbit.io/fluent/fluent-bit:3.1.10
-    container_name: fluent-bit
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-    depends_on:
-      - loki
-    restart: unless-stopped
-
-  # ===== Your service =====
   company-service:
     build:
       context: .
@@ -84,21 +21,19 @@ services:
     container_name: company-service
     environment:
       - NODE_ENV=production
-      - PORT=3002
+      - PORT=${PORT:-3002}
       - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
       - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
-      - OTEL_SERVICE_NAME=company-management-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318
       - LOG_LEVEL=info
     ports:
-      - "3002:3002"
-    depends_on:
-      - tempo
-      - prometheus
-      - loki
+      - "${PORT:-3002}:${PORT:-3002}"
     restart: unless-stopped
-    logging:  # still forward stdout; Fluent Bit will tail Docker logs
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
+    logging:
       driver: "json-file"
       options:
         max-size: "10m"
@@ -106,6 +41,8 @@ services:
 
 volumes:
   prom_data:
-  grafana_data:
-  loki_data:
-  tempo_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
